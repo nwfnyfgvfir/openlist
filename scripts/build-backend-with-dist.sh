@@ -14,6 +14,14 @@ if [[ -z "${BACKEND_DIR}" || -z "${DIST_DIR}" || -z "${OUT_BIN}" ]]; then
   exit 1
 fi
 
+# Resolve to absolute paths BEFORE any cd — relative -o would land under BACKEND_DIR.
+BACKEND_DIR="$(cd "${BACKEND_DIR}" && pwd)"
+DIST_DIR="$(cd "${DIST_DIR}" && pwd)"
+OUT_DIR="$(dirname "${OUT_BIN}")"
+mkdir -p "${OUT_DIR}"
+OUT_DIR="$(cd "${OUT_DIR}" && pwd)"
+OUT_BIN="${OUT_DIR}/$(basename "${OUT_BIN}")"
+
 if [[ ! -f "${BACKEND_DIR}/main.go" && ! -f "${BACKEND_DIR}/go.mod" ]]; then
   echo "Error: ${BACKEND_DIR} is not an OpenList backend checkout"
   exit 1
@@ -45,13 +53,17 @@ ldflags="\
 -X 'github.com/OpenListTeam/OpenList/v4/internal/conf.WebVersion=${WEB_VERSION}' \
 "
 
-mkdir -p "$(dirname "${OUT_BIN}")"
 echo "==> go build -> ${OUT_BIN}"
 (
   cd "${BACKEND_DIR}"
   CGO_ENABLED="${CGO_ENABLED:-0}" GOOS="${GOOS:-linux}" GOARCH="${GOARCH:-amd64}" \
     go build -o "${OUT_BIN}" -ldflags="${ldflags}" -tags=jsoniter .
 )
+
+if [[ ! -f "${OUT_BIN}" ]]; then
+  echo "Error: binary was not written to ${OUT_BIN}"
+  exit 1
+fi
 
 chmod +x "${OUT_BIN}"
 echo "==> Built $(du -h "${OUT_BIN}" | awk '{print $1}') ${OUT_BIN}"

@@ -121,21 +121,7 @@ jobs:
           ref: ${{ steps.ver.outputs.backend_ref }}
           path: upstream/backend
 
-      - name: Build backend binary with custom dist
-        if: steps.skip.outputs.skip != 'true'
-        env:
-          VERSION: ${{ steps.ver.outputs.backend_ref }}
-          WEB_VERSION: ${{ steps.ver.outputs.frontend_ref }}+dblseek
-          CGO_ENABLED: "0"
-          GOOS: linux
-          GOARCH: amd64
-        run: |
-          bash scripts/build-backend-with-dist.sh \
-            upstream/backend \
-            upstream/frontend/dist \
-            docker-context/openlist
-
-      - name: Prepare Docker context
+      - name: Prepare Docker context skeleton
         if: steps.skip.outputs.skip != 'true'
         run: |
           mkdir -p docker-context
@@ -153,7 +139,24 @@ jobs:
               'exec ./openlist server --no-prefix' \
               > docker-context/entrypoint.sh
           fi
-          chmod +x docker-context/openlist docker-context/entrypoint.sh
+          chmod +x docker-context/entrypoint.sh
+
+      - name: Build backend binary with custom dist
+        if: steps.skip.outputs.skip != 'true'
+        env:
+          VERSION: ${{ steps.ver.outputs.backend_ref }}
+          WEB_VERSION: ${{ steps.ver.outputs.frontend_ref }}+dblseek
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          # Absolute output path — build script cds into backend; relative -o would be wrong.
+          OUT_BIN="${GITHUB_WORKSPACE}/docker-context/openlist"
+          bash scripts/build-backend-with-dist.sh \
+            "${GITHUB_WORKSPACE}/upstream/backend" \
+            "${GITHUB_WORKSPACE}/upstream/frontend/dist" \
+            "${OUT_BIN}"
+          test -x "${OUT_BIN}"
           ls -la docker-context
 
       - name: Log in to GHCR
