@@ -5,9 +5,10 @@
 GitHub Actions 自动：
 
 1. 拉取上游最新 release  
-2. 给在线播放器打上「双击左半屏 -10s / 右半屏 +10s」  
-3. 构建前端并嵌入后端  
-4. 推送 Docker 镜像到 **GHCR**（`linux/amd64`）
+2. 注入官方多语言包（`i18n.tar.gz`，含简体中文）  
+3. 给在线播放器打上「双击左半屏 -10s / 右半屏 +10s」；默认界面语言 **简体中文（zh-CN）**  
+4. 构建前端并嵌入后端  
+5. 推送 Docker 镜像到 **GHCR**（`linux/amd64`）
 
 ## 播放器行为
 
@@ -19,12 +20,19 @@ GitHub Actions 自动：
 | 原「双击全屏」 | 关闭，请用全屏按钮 / 快捷键 |
 | 长按加速 | 保留官方 `fastForward` |
 
+## 界面语言
+
+- 默认：**简体中文（zh-CN）**（浏览器语言匹配时仍优先浏览器）  
+- 构建时从上游 release 拉取 `i18n.tar.gz`，否则源码树只有英文  
+- 若浏览器里以前选过英文，会记住 `localStorage.lang`；要改回中文可在界面语言菜单切换，或清除本站 localStorage 后刷新  
+
 修改文件（上游路径）：
 
 - `src/pages/home/previews/dblclick-seek.ts`（新增）
 - `src/pages/home/previews/video.tsx`
 - `src/pages/home/previews/aliyun_video.tsx`
 - `src/pages/home/previews/video_box.tsx`（关闭 `DBCLICK_FULLSCREEN`）
+- `src/app/i18n.ts` / `src/components/SwitchLanguage.tsx`（默认 zh-CN）
 
 ## 镜像
 

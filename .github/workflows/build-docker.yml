@@ -103,6 +103,13 @@ jobs:
         if: steps.skip.outputs.skip != 'true'
         run: bash scripts/apply-frontend-custom.sh upstream/frontend
 
+      - name: Fetch official i18n (zh-CN and others)
+        if: steps.skip.outputs.skip != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FRONTEND_REF: ${{ steps.ver.outputs.frontend_ref }}
+        run: bash scripts/fetch-frontend-i18n.sh upstream/frontend "${{ steps.ver.outputs.frontend_ref }}"
+
       - name: Install & build frontend
         if: steps.skip.outputs.skip != 'true'
         working-directory: upstream/frontend
@@ -112,6 +119,8 @@ jobs:
           pnpm install --frozen-lockfile || pnpm install
           pnpm build
           test -f dist/index.html
+          # Ensure Chinese locale was compiled into the bundle
+          test -d src/lang/zh-CN
 
       - name: Checkout OpenList backend
         if: steps.skip.outputs.skip != 'true'

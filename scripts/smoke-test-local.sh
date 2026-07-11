@@ -22,6 +22,9 @@ git clone --depth 1 --branch "${FRONTEND_REF}" \
 echo "==> Apply patches"
 bash "${ROOT}/scripts/apply-frontend-custom.sh" "${WORK}/frontend"
 
+echo "==> Fetch official i18n (zh-CN, etc.)"
+bash "${ROOT}/scripts/fetch-frontend-i18n.sh" "${WORK}/frontend" "${FRONTEND_REF}"
+
 echo "==> Build frontend"
 (
   cd "${WORK}/frontend"
@@ -30,6 +33,7 @@ echo "==> Build frontend"
   pnpm install --frozen-lockfile || pnpm install
   pnpm build
   test -f dist/index.html
+  test -d src/lang/zh-CN
 )
 
 echo "==> Clone backend ${BACKEND_REF}"

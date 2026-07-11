@@ -1,0 +1,45 @@
+diff --git a/src/app/i18n.ts b/src/app/i18n.ts
+index 21fb518..4632e3f 100644
+--- a/src/app/i18n.ts
++++ b/src/app/i18n.ts
+@@ -16,13 +16,16 @@ export const languages = Object.keys(langs).map((langPath) => {
+ })
+ 
+ // determine browser's default language
++// Fallback to Simplified Chinese when browser language is unavailable/unmatched.
++// Must match folder name from official i18n.tar.gz (zh-CN), not zh-cn.
++const FALLBACK_LANG = "zh-CN"
+ const userLang = navigator.language.toLowerCase()
+ const defaultLang =
+   languages.find((lang) => lang.code.toLowerCase() === userLang)?.code ||
+   languages.find(
+     (lang) => lang.code.toLowerCase().split("-")[0] === userLang.split("-")[0],
+   )?.code ||
+-  "en"
++  (languages.some((lang) => lang.code === FALLBACK_LANG) ? FALLBACK_LANG : "en")
+ 
+ // Get initial language from localStorage or fallback to defaultLang
+ export let initialLang = localStorage.getItem("lang") ?? defaultLang
+diff --git a/src/components/SwitchLanguage.tsx b/src/components/SwitchLanguage.tsx
+index e4c1d9f..bc4ccb0 100644
+--- a/src/components/SwitchLanguage.tsx
++++ b/src/components/SwitchLanguage.tsx
+@@ -26,10 +26,15 @@ export const SwitchLanguage = <C extends ElementType = "button">(
+   }
+ 
+   if (!localStorage.getItem("lang")) {
++    const browserExact = languages.find((l) => l.code === navigator.language)
++    const browserPrefix = languages.find(
++      (l) =>
++        l.code.toLowerCase().split("-")[0] ===
++        navigator.language.toLowerCase().split("-")[0],
++    )
++    const zhCN = languages.find((l) => l.code === "zh-CN")
+     switchLang(
+-      languages.find((l) => l.code === navigator.language)
+-        ? navigator.language
+-        : "en",
++      (browserExact?.code || browserPrefix?.code || zhCN?.code || "en") as Lang,
+     )
+   }
+ 
