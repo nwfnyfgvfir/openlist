@@ -1,0 +1,223 @@
+name: Build & Push OpenList Docker
+
+on:
+  schedule:
+    # Every day 02:00 UTC
+    - cron: "0 2 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "patches/**"
+      - "overlay/**"
+      - "scripts/**"
+      - "docker/**"
+      - ".github/workflows/build-docker.yml"
+  workflow_dispatch:
+    inputs:
+      backend_ref:
+        description: "Backend tag/branch/SHA (empty = latest release)"
+        required: false
+        default: ""
+      frontend_ref:
+        description: "Frontend tag/branch/SHA (empty = latest release)"
+        required: false
+        default: ""
+      force:
+        description: "Force rebuild even if versions unchanged"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: build-docker-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this custom repo
+        uses: actions/checkout@v4
+
+      - name: Resolve upstream versions
+        id: ver
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BACKEND_REF: ${{ inputs.backend_ref }}
+          FRONTEND_REF: ${{ inputs.frontend_ref }}
+        run: |
+          bash scripts/resolve-upstream-versions.sh
+          PATCH_HASH="$(find patches overlay -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)"
+          echo "PATCH_HASH=${PATCH_HASH}" >> "$GITHUB_ENV"
+          echo "patch_hash=${PATCH_HASH}" >> "$GITHUB_OUTPUT"
+          # GHCR requires lowercase image names
+          echo "image_owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Check previous successful build cache
+        id: cache
+        if: github.event_name == 'schedule' && (inputs.force != true)
+        uses: actions/cache@v4
+        with:
+          path: .build-stamp
+          key: openlist-${{ steps.ver.outputs.backend_ref }}-${{ steps.ver.outputs.frontend_ref }}-${{ steps.ver.outputs.patch_hash }}
+
+      - name: Skip if unchanged (schedule only)
+        id: skip
+        if: github.event_name == 'schedule' && steps.cache.outputs.cache-hit == 'true'
+        run: |
+          echo "skip=true" >> "$GITHUB_OUTPUT"
+          echo "Upstream versions + patches unchanged; skipping rebuild."
+
+      - name: Setup Node / pnpm
+        if: steps.skip.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable corepack (pnpm)
+        if: steps.skip.outputs.skip != 'true'
+        run: corepack enable
+
+      - name: Setup Go
+        if: steps.skip.outputs.skip != 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.4"
+          cache: false
+
+      - name: Checkout OpenList-Frontend
+        if: steps.skip.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.ver.outputs.frontend_repo }}
+          ref: ${{ steps.ver.outputs.frontend_ref }}
+          path: upstream/frontend
+
+      - name: Apply frontend customizations
+        if: steps.skip.outputs.skip != 'true'
+        run: bash scripts/apply-frontend-custom.sh upstream/frontend
+
+      - name: Install & build frontend
+        if: steps.skip.outputs.skip != 'true'
+        working-directory: upstream/frontend
+        run: |
+          # packageManager field pins pnpm version
+          corepack prepare --activate
+          pnpm install --frozen-lockfile || pnpm install
+          pnpm build
+          test -f dist/index.html
+
+      - name: Checkout OpenList backend
+        if: steps.skip.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.ver.outputs.backend_repo }}
+          ref: ${{ steps.ver.outputs.backend_ref }}
+          path: upstream/backend
+
+      - name: Build backend binary with custom dist
+        if: steps.skip.outputs.skip != 'true'
+        env:
+          VERSION: ${{ steps.ver.outputs.backend_ref }}
+          WEB_VERSION: ${{ steps.ver.outputs.frontend_ref }}+dblseek
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          bash scripts/build-backend-with-dist.sh \
+            upstream/backend \
+            upstream/frontend/dist \
+            docker-context/openlist
+
+      - name: Prepare Docker context
+        if: steps.skip.outputs.skip != 'true'
+        run: |
+          mkdir -p docker-context
+          cp docker/Dockerfile docker-context/Dockerfile
+          # Prefer upstream entrypoint; fallback minimal
+          if [[ -f upstream/backend/entrypoint.sh ]]; then
+            cp upstream/backend/entrypoint.sh docker-context/entrypoint.sh
+          else
+            printf '%s\n' \
+              '#!/bin/sh' \
+              'umask ${UMASK:-022}' \
+              'if [ "$1" = "version" ]; then' \
+              '  exec ./openlist version' \
+              'fi' \
+              'exec ./openlist server --no-prefix' \
+              > docker-context/entrypoint.sh
+          fi
+          chmod +x docker-context/openlist docker-context/entrypoint.sh
+          ls -la docker-context
+
+      - name: Log in to GHCR
+        if: steps.skip.outputs.skip != 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        if: steps.skip.outputs.skip != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker metadata
+        if: steps.skip.outputs.skip != 'true'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.ver.outputs.image_owner }}/openlist
+          tags: |
+            type=raw,value=latest
+            type=raw,value=upstream-${{ steps.ver.outputs.backend_ref }}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=fe-${{ steps.ver.outputs.frontend_ref }}
+
+      - name: Build and push
+        if: steps.skip.outputs.skip != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: docker-context
+          file: docker-context/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: false
+
+      - name: Write build stamp
+        if: steps.skip.outputs.skip != 'true'
+        run: |
+          echo "${{ steps.ver.outputs.backend_ref }} ${{ steps.ver.outputs.frontend_ref }} ${{ steps.ver.outputs.patch_hash }}" > .build-stamp
+          date -u >> .build-stamp
+
+      - name: Save build stamp cache
+        if: steps.skip.outputs.skip != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .build-stamp
+          key: openlist-${{ steps.ver.outputs.backend_ref }}-${{ steps.ver.outputs.frontend_ref }}-${{ steps.ver.outputs.patch_hash }}
+
+      - name: Job summary
+        if: always()
+        run: |
+          cat <<EOF >> "$GITHUB_STEP_SUMMARY"
+          ## OpenList custom image
+
+          | Item | Value |
+          |------|-------|
+          | Backend | \`${{ steps.ver.outputs.backend_repo }}@${{ steps.ver.outputs.backend_ref }}\` |
+          | Frontend | \`${{ steps.ver.outputs.frontend_repo }}@${{ steps.ver.outputs.frontend_ref }}\` |
+          | Image | \`${{ env.REGISTRY }}/${{ steps.ver.outputs.image_owner }}/openlist\` |
+          | Platform | \`linux/amd64\` |
+          | Skipped | \`${{ steps.skip.outputs.skip || 'false' }}\` |
+
+          Player: double-click left = -10s, right = +10s (ArtPlayer DBCLICK_FULLSCREEN off).
+          EOF

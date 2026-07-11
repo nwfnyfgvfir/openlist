@@ -1,0 +1,20 @@
+# Upstream checkouts / local build
+upstream/
+docker-context/
+data/
+.build-stamp
+dist/
+*.tar.gz
+bin/
+tmp/
+
+# Node / Go / IDE
+node_modules/
+.pnpm-store/
+.idea/
+.vscode/
+*.log
+.DS_Store
+
+# Claude
+.claude/

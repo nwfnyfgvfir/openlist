@@ -1,0 +1,13 @@
+services:
+  openlist:
+    image: ghcr.io/${GHCR_OWNER:-local}/openlist:latest
+    container_name: openlist
+    restart: unless-stopped
+    ports:
+      - "5244:5244"
+    volumes:
+      - ./data:/opt/openlist/data
+    environment:
+      - UMASK=022
+    # Uncomment if you need host user ownership:
+    # user: "${UID:-1001}:${GID:-1001}"
