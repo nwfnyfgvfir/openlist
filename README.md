@@ -34,30 +34,49 @@ ghcr.io/<...>/openlist:upstream-<backend_tag>
 ghcr.io/<...>/openlist:fe-<frontend_tag>
 ```
 
-### 拉取并运行
+## 运行（Docker Compose，推荐）
+
+仓库以 **docker compose** 为唯一推荐运行方式。
 
 ```bash
-# 若 package 为 private，先登录
-echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+cd /path/to/openlist
 
-docker run -d --name openlist --restart=unless-stopped \
-  -v "$PWD/data:/opt/openlist/data" \
-  -p 5244:5244 \
-  ghcr.io/<owner>/openlist:latest
+# 1. 配置镜像所有者（小写 GitHub 用户名/组织）
+cp .env.example .env
+# 编辑 .env：GHCR_OWNER=your-github-username
 
-# 首次管理员密码
-docker logs openlist
+# 2. 若 GHCR package 为 private，先登录
+# echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+
+# 3. 拉取并启动
+docker compose pull
+docker compose up -d
+
+# 4. 首次管理员密码在日志里
+docker compose logs openlist | head -50
+
+# 浏览器打开
+# http://localhost:5244
 ```
 
-或使用仓库内 `docker-compose.yml`（设置环境变量 `GHCR_OWNER`）。
+常用命令：
 
-## 启用 GitHub Actions
+```bash
+docker compose ps
+docker compose logs -f openlist
+docker compose pull && docker compose up -d   # 更新镜像后重启
+docker compose down                           # 停止（保留 ./data）
+```
+
+`.env` 可调项见 `.env.example`：`GHCR_OWNER`、`OPENLIST_TAG`、`OPENLIST_PORT`、`OPENLIST_DATA`。
+
+## 启用 GitHub Actions（先构建镜像再 compose）
 
 1. 将本仓库 push 到 GitHub（建议 public，便于 GHCR 拉取）  
 2. 仓库 **Settings → Actions → General**：允许 workflow 读写  
 3. **Settings → Packages**：构建后在 package 设置中将 visibility 设为 public（可选）  
 4. 打开 **Actions → Build & Push OpenList Docker → Run workflow**  
-5. 等待推送完成，再 `docker pull`
+5. 成功后按上文 `docker compose up -d`
 
 定时任务：每天 UTC 02:00 检查上游；版本+补丁未变时可跳过重建。
 

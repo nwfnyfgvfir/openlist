@@ -1,13 +1,31 @@
+# OpenList custom image (double-click left/right seek ±10s)
+#
+# 1. Copy env example and set your GHCR owner (lowercase GitHub username/org):
+#      cp .env.example .env
+# 2. Start:
+#      docker compose pull
+#      docker compose up -d
+# 3. First-run admin password:
+#      docker compose logs openlist | head -50
+#
+# Open: http://localhost:5244
+
 services:
   openlist:
-    image: ghcr.io/${GHCR_OWNER:-local}/openlist:latest
+    image: ghcr.io/${GHCR_OWNER:?set GHCR_OWNER in .env}/openlist:${OPENLIST_TAG:-latest}
     container_name: openlist
     restart: unless-stopped
     ports:
-      - "5244:5244"
+      - "${OPENLIST_PORT:-5244}:5244"
     volumes:
-      - ./data:/opt/openlist/data
+      - ${OPENLIST_DATA:-./data}:/opt/openlist/data
     environment:
-      - UMASK=022
-    # Uncomment if you need host user ownership:
+      UMASK: ${UMASK:-022}
+    # Match host UID/GID if data dir permission issues (v4.1+ images):
     # user: "${UID:-1001}:${GID:-1001}"
+    healthcheck:
+      test: ["CMD", "./openlist", "version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s

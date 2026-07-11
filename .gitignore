@@ -8,6 +8,9 @@ dist/
 bin/
 tmp/
 
+# Local runtime secrets / overrides (keep .env.example)
+.env
+
 # Node / Go / IDE
 node_modules/
 .pnpm-store/
