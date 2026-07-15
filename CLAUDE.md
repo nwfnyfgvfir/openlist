@@ -28,13 +28,18 @@ Patch layer on top of official OpenList:
 
 - Upstream backend: https://github.com/OpenListTeam/OpenList (AGPL-3.0)
 - Upstream frontend: https://github.com/OpenListTeam/OpenList-Frontend (MIT)
-- Customization: ArtPlayer double-click left/right seek ±10s
+- Customization:
+  - ArtPlayer double-click left/right seek ±10s
+  - Mobile native fullscreen: prefer `orientation.lock`, CSS rotate fallback
 
 ## Key paths
 
-- `patches/frontend/001-dblclick-seek.patch` — apply onto frontend checkout
+- `patches/frontend/001-dblclick-seek.patch` — dblclick seek + `DBCLICK_FULLSCREEN=false`
+- `patches/frontend/002-default-lang-zh-CN.patch` — default UI lang zh-CN
+- `patches/frontend/003-fullscreen-orientation.patch` — native FS landscape fallback (after 001)
 - `overlay/frontend/.../dblclick-seek.ts` — source of the seek helper
-- `scripts/apply-frontend-custom.sh` — apply patches
+- `overlay/frontend/.../fullscreen-orientation.ts` — native FS orientation helper
+- `scripts/apply-frontend-custom.sh` — apply patches (lexical order) + overlay copy
 - `scripts/build-backend-with-dist.sh` — embed custom dist + go build
 - `.github/workflows/build-docker.yml` — track upstream + push GHCR
 
@@ -42,8 +47,15 @@ Patch layer on top of official OpenList:
 
 ```bash
 git clone --depth 1 --branch <frontend_tag> https://github.com/OpenListTeam/OpenList-Frontend.git /tmp/fe
-# re-apply manual edits to video.tsx / aliyun_video.tsx / video_box.tsx + add dblclick-seek.ts
+# 1) Refresh 001 first (seek): edit video.tsx / aliyun_video.tsx / video_box.tsx + dblclick-seek.ts
 cd /tmp/fe
 git add -N src/pages/home/previews/dblclick-seek.ts
 git diff > /path/to/this/repo/patches/frontend/001-dblclick-seek.patch
+
+# 2) Commit or re-apply 001(+002), then refresh 003 only:
+#    add fullscreen-orientation.ts + enableFullscreenOrientation wire-in
+git add -N src/pages/home/previews/fullscreen-orientation.ts
+git diff -- src/pages/home/previews/fullscreen-orientation.ts \
+  src/pages/home/previews/video.tsx src/pages/home/previews/aliyun_video.tsx \
+  > /path/to/this/repo/patches/frontend/003-fullscreen-orientation.patch
 ```

@@ -19,6 +19,8 @@ GitHub Actions 自动：
 | 单击 | 保持 ArtPlayer 默认（桌面播放/暂停） |
 | 原「双击全屏」 | 关闭，请用全屏按钮 / 快捷键 |
 | 长按加速 | 保留官方 `fastForward` |
+| 移动端**真实全屏**（最右侧按钮） | 优先系统横屏锁定；失败则 CSS 横屏观感（横版片源 + 竖屏视口） |
+| 移动端**网页全屏** | 保持 ArtPlayer `autoOrientation` 行为 |
 
 ## 界面语言
 
@@ -29,10 +31,13 @@ GitHub Actions 自动：
 修改文件（上游路径）：
 
 - `src/pages/home/previews/dblclick-seek.ts`（新增）
+- `src/pages/home/previews/fullscreen-orientation.ts`（新增，真实全屏横屏兜底）
 - `src/pages/home/previews/video.tsx`
 - `src/pages/home/previews/aliyun_video.tsx`
 - `src/pages/home/previews/video_box.tsx`（关闭 `DBCLICK_FULLSCREEN`）
 - `src/app/i18n.ts` / `src/components/SwitchLanguage.tsx`（默认 zh-CN）
+
+补丁顺序：`001-dblclick-seek` → `002-default-lang-zh-CN` → `003-fullscreen-orientation`（003 依赖 001 的接线上下文）。
 
 ## 镜像
 

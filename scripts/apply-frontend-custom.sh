@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Apply OpenList-Frontend customizations (double-click seek) onto a checkout.
+# Apply OpenList-Frontend customizations (dblclick seek + native FS orientation)
+# onto a checkout.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -20,7 +21,7 @@ OVERLAY="${ROOT}/overlay/frontend"
 
 echo "==> Applying frontend customizations to: ${TARGET}"
 
-# Prefer unified patches (includes new file + wiring).
+# Prefer unified patches (includes new file + wiring). Lexical order: 001 → 002 → 003.
 shopt -s nullglob
 patches=("${PATCH_DIR}"/*.patch)
 if ((${#patches[@]} > 0)); then
@@ -44,22 +45,34 @@ else
   echo "No patches found under ${PATCH_DIR}; copying overlay only."
 fi
 
-# Ensure overlay file exists even if patch only wired imports (idempotent).
-if [[ -f "${OVERLAY}/src/pages/home/previews/dblclick-seek.ts" ]]; then
-  mkdir -p "${TARGET}/src/pages/home/previews"
-  if [[ ! -f "${TARGET}/src/pages/home/previews/dblclick-seek.ts" ]]; then
-    echo "    copy overlay dblclick-seek.ts"
-    cp "${OVERLAY}/src/pages/home/previews/dblclick-seek.ts" \
-      "${TARGET}/src/pages/home/previews/dblclick-seek.ts"
-  fi
+# Ensure overlay helpers exist even if a patch only wired imports (idempotent).
+mkdir -p "${TARGET}/src/pages/home/previews"
+if [[ -d "${OVERLAY}/src/pages/home/previews" ]]; then
+  shopt -s nullglob
+  for f in "${OVERLAY}/src/pages/home/previews"/*; do
+    base="$(basename "$f")"
+    if [[ ! -f "${TARGET}/src/pages/home/previews/${base}" ]]; then
+      echo "    copy overlay ${base}"
+      cp "${f}" "${TARGET}/src/pages/home/previews/${base}"
+    fi
+  done
 fi
 
 # Sanity checks
 grep -q 'enableDblclickSeek' "${TARGET}/src/pages/home/previews/video.tsx" \
-  || { echo "ERROR: video.tsx not wired"; exit 3; }
+  || { echo "ERROR: video.tsx not wired (dblclick)"; exit 3; }
 grep -q 'enableDblclickSeek' "${TARGET}/src/pages/home/previews/aliyun_video.tsx" \
-  || { echo "ERROR: aliyun_video.tsx not wired"; exit 3; }
+  || { echo "ERROR: aliyun_video.tsx not wired (dblclick)"; exit 3; }
 test -f "${TARGET}/src/pages/home/previews/dblclick-seek.ts" \
   || { echo "ERROR: dblclick-seek.ts missing"; exit 3; }
+
+if [[ -f "${PATCH_DIR}/003-fullscreen-orientation.patch" ]]; then
+  grep -q 'enableFullscreenOrientation' "${TARGET}/src/pages/home/previews/video.tsx" \
+    || { echo "ERROR: video.tsx not wired (fullscreen orientation)"; exit 3; }
+  grep -q 'enableFullscreenOrientation' "${TARGET}/src/pages/home/previews/aliyun_video.tsx" \
+    || { echo "ERROR: aliyun_video.tsx not wired (fullscreen orientation)"; exit 3; }
+  test -f "${TARGET}/src/pages/home/previews/fullscreen-orientation.ts" \
+    || { echo "ERROR: fullscreen-orientation.ts missing"; exit 3; }
+fi
 
 echo "==> Frontend customizations applied successfully"
