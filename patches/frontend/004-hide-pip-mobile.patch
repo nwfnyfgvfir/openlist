@@ -1,0 +1,30 @@
+diff --git a/src/pages/home/previews/aliyun_video.tsx b/src/pages/home/previews/aliyun_video.tsx
+index 63928dc..972ed6c 100644
+--- a/src/pages/home/previews/aliyun_video.tsx
++++ b/src/pages/home/previews/aliyun_video.tsx
+@@ -118,7 +118,9 @@ const Preview = () => {
+     aspectRatio: true,
+     setting: true,
+     hotkey: true,
+-    pip: true,
++    pip: !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(
++      typeof navigator !== "undefined" ? navigator.userAgent : "",
++    ),
+     mutex: true,
+     fullscreen: true,
+     fullscreenWeb: true,
+diff --git a/src/pages/home/previews/video.tsx b/src/pages/home/previews/video.tsx
+index b9da7fe..ac9406a 100644
+--- a/src/pages/home/previews/video.tsx
++++ b/src/pages/home/previews/video.tsx
+@@ -76,7 +76,9 @@ const Preview = () => {
+     screenshot: true,
+     setting: true,
+     hotkey: true,
+-    pip: true,
++    pip: !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(
++      typeof navigator !== "undefined" ? navigator.userAgent : "",
++    ),
+     mutex: true,
+     fullscreen: true,
+     fullscreenWeb: true,

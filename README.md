@@ -21,6 +21,7 @@ GitHub Actions 自动：
 | 长按加速 | 保留官方 `fastForward` |
 | 移动端**真实全屏**（最右侧按钮） | 优先系统横屏锁定；失败则 CSS 横屏观感（横版片源 + 竖屏视口） |
 | 移动端**网页全屏** | 保持 ArtPlayer `autoOrientation` 行为 |
+| 移动端**画中画 PIP** | 隐藏，避免控件挤出真实全屏按钮（桌面仍保留） |
 
 ## 界面语言
 
@@ -37,7 +38,7 @@ GitHub Actions 自动：
 - `src/pages/home/previews/video_box.tsx`（关闭 `DBCLICK_FULLSCREEN`）
 - `src/app/i18n.ts` / `src/components/SwitchLanguage.tsx`（默认 zh-CN）
 
-补丁顺序：`001-dblclick-seek` → `002-default-lang-zh-CN` → `003-fullscreen-orientation`（003 依赖 001 的接线上下文）。
+补丁顺序：`001-dblclick-seek` → `002-default-lang-zh-CN` → `003-fullscreen-orientation`（依赖 001 接线）→ `004-hide-pip-mobile`（移动端关 PIP）。
 
 ## 镜像
 

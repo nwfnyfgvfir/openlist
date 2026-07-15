@@ -37,6 +37,7 @@ Patch layer on top of official OpenList:
 - `patches/frontend/001-dblclick-seek.patch` — dblclick seek + `DBCLICK_FULLSCREEN=false`
 - `patches/frontend/002-default-lang-zh-CN.patch` — default UI lang zh-CN
 - `patches/frontend/003-fullscreen-orientation.patch` — native FS landscape fallback (after 001)
+- `patches/frontend/004-hide-pip-mobile.patch` — disable ArtPlayer pip on mobile so native FS button stays visible
 - `overlay/frontend/.../dblclick-seek.ts` — source of the seek helper
 - `overlay/frontend/.../fullscreen-orientation.ts` — native FS orientation helper
 - `scripts/apply-frontend-custom.sh` — apply patches (lexical order) + overlay copy
